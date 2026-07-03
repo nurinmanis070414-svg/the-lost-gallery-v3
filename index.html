@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE LOST GALLERY — Heritage Archive System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14; --panel:#151A24; --panel-edge:#232A38;
+    --gold:#C9A227; --gold-soft:#8F7A3E; --parchment:#E9E0CB;
+    --alert:#FF3B5C; --restored:#4FD1A5; --dim:#6b7280;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg); color:var(--parchment); font-family:'Inter',sans-serif; line-height:1.6; overflow-x:hidden;}
+  h1,h2,h3{font-family:'Cormorant Garamond',serif; font-weight:700;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  .watermark{
+    position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+    color:var(--gold); opacity:.035; font-family:'JetBrains Mono',monospace;
+    font-size:13px; line-height:2.4; white-space:pre; letter-spacing:.2em;
+  }
+  .noise{position:fixed; inset:0; pointer-events:none; opacity:.03; z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+  #particles{position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0;}
+  .particle{
+    position:absolute; bottom:-10px; width:3px; height:3px; border-radius:50%;
+    background:var(--gold); opacity:0; animation:rise linear infinite;
+  }
+  @keyframes rise{
+    0%{transform:translateY(0) translateX(0); opacity:0;}
+    10%{opacity:.6;}
+    90%{opacity:.4;}
+    100%{transform:translateY(-620px) translateX(var(--drift,20px)); opacity:0;}
+  }
+
+  @keyframes flicker{
+    0%,100%{opacity:1;}
+    92%{opacity:1;}
+    93%{opacity:.4;}
+    94%{opacity:1;}
+    96%{opacity:.3;}
+    97%{opacity:1;}
+  }
+  .flicker{animation:flicker 4.5s infinite;}
+
+  .reveal-on-scroll{opacity:0; transform:translateY(28px); transition:opacity .8s ease, transform .8s ease;}
+  .reveal-on-scroll.visible{opacity:1; transform:translateY(0);}
+
+  .restore-btn{position:relative;}
+  .restore-btn::after{
+    content:""; position:absolute; inset:-4px; border:1px solid var(--gold); border-radius:8px;
+    opacity:0; animation:pulseRing 2.4s ease-out infinite;
+  }
+  @keyframes pulseRing{
+    0%{opacity:.5; transform:scale(1);}
+    100%{opacity:0; transform:scale(1.18);}
+  }
+
+  #scanline{
+    position:fixed; left:0; right:0; height:2px; z-index:40; pointer-events:none;
+    background:linear-gradient(90deg, transparent, rgba(201,162,39,.5), transparent);
+    animation:sweep 7s linear infinite;
+  }
+  @keyframes sweep{
+    0%{top:0%; opacity:0;}
+    5%{opacity:.7;}
+    95%{opacity:.7;}
+    100%{top:100%; opacity:0;}
+  }
+
+  .typewriter{
+    display:inline-block; overflow:hidden; white-space:nowrap;
+    border-right:3px solid var(--gold);
+    animation:typing 1.6s steps(11,end) forwards, caret .8s step-end infinite;
+    max-width:0;
+  }
+  @keyframes typing{ to{ max-width:100%; } }
+  @keyframes caret{ 50%{ border-color:transparent; } }
+
+  .vault.open{ transition:transform .35s ease, box-shadow .35s ease; }
+  .vault.open:hover{
+    transform:translateY(-4px);
+    box-shadow:0 14px 34px rgba(0,0,0,.4), 0 0 0 1px rgba(201,162,39,.25);
+  }
+
+  @keyframes numberPop{
+    0%{opacity:0; transform:translateY(6px);}
+    100%{opacity:1; transform:translateY(0);}
+  }
+  .archive-id{animation:numberPop .5s ease both;}
+
+  .corner-badge{
+    position:fixed; top:16px; right:20px; z-index:60;
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em;
+    color:var(--restored); text-align:right; line-height:1.5;
+  }
+  .corner-badge .dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--restored); margin-right:6px; animation:pulse 1.6s infinite;}
+  @keyframes pulse{50%{opacity:.3;}}
+
+  #loginScreen{
+    position:fixed; inset:0; z-index:100; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .login-box{
+    width:100%; max-width:380px; border:1px solid var(--panel-edge); background:var(--panel);
+    border-radius:8px; padding:40px 34px; position:relative; z-index:2;
+  }
+  .login-box .sys-tag{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gold); letter-spacing:.2em; margin-bottom:20px; text-align:center;}
+  .login-box h2{text-align:center; font-size:1.8rem; margin-bottom:6px; color:var(--parchment);}
+  .login-box .sub{text-align:center; font-size:.78rem; color:var(--dim); margin-bottom:26px; font-family:'JetBrains Mono',monospace;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold-soft); margin-bottom:6px; letter-spacing:.08em;}
+  .field input{
+    width:100%; background:#0f1319; border:1px solid var(--panel-edge); border-radius:4px;
+    padding:11px 12px; color:var(--parchment); font-family:'JetBrains Mono',monospace; font-size:13px;
+  }
+  .field input:focus{outline:none; border-color:var(--gold);}
+  #loginBtn{
+    width:100%; margin-top:10px; padding:12px; background:var(--gold); color:var(--bg); border:none;
+    border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em;
+    text-transform:uppercase; cursor:pointer; font-weight:700;
+  }
+  #loginBtn:hover{background:#e0bb3d;}
+  #verifyMsg{
+    text-align:center; margin-top:16px; font-family:'JetBrains Mono',monospace; font-size:12px;
+    color:var(--restored); display:none;
+  }
+  .warning-note{
+    margin-top:22px; padding-top:18px; border-top:1px dashed var(--panel-edge);
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); line-height:1.7; text-align:center;
+  }
+
+  #loadingScreen{
+    position:fixed; inset:0; z-index:99; background:var(--bg); display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+  }
+  #loadingScreen .mono{color:var(--gold); font-size:13px; letter-spacing:.15em; margin-bottom:16px;}
+  .load-bar-wrap{width:260px; height:8px; background:#1c2230; border-radius:4px; overflow:hidden; border:1px solid var(--panel-edge);}
+  .load-bar-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--alert),var(--gold)); transition:width .1s linear;}
+  #loadingScreen .pct{margin-top:10px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim);}
+
+  #mainSite{display:none;}
+
+  #hud{
+    position:fixed; top:0; left:0; right:0; z-index:50;
+    background:rgba(11,14,20,.92); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--panel-edge); padding:12px 20px 12px 20px;
+    display:flex; align-items:center; gap:16px; font-family:'JetBrains Mono',monospace; font-size:12px;
+  }
+  #hud .tag{color:var(--alert); letter-spacing:.08em;}
+  #hud .mission-label{color:var(--gold-soft); letter-spacing:.15em; font-size:10px;}
+  #hud .bar-wrap{flex:1; height:6px; background:#1c2230; border-radius:3px; overflow:hidden; border:1px solid var(--panel-edge);}
+  #hud .bar-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--alert),var(--gold)); transition:width .8s ease;}
+  #hud .pct{color:var(--gold); min-width:40px; text-align:right;}
+
+  .hero{min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:130px 20px 60px; position:relative;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; color:var(--alert); font-size:12px; letter-spacing:.25em; text-transform:uppercase; margin-bottom:22px;}
+  .eyebrow .blink{animation:blink 1.4s infinite;}
+  @keyframes blink{50%{opacity:.2;}}
+  .hero h1{font-size:clamp(3rem,9vw,6.5rem); line-height:.95; color:var(--parchment); text-shadow:0 0 40px rgba(201,162,39,.25);}
+  .hero h1 span{color:var(--gold); font-style:italic;}
+  .hero p.sub{max-width:640px; margin:26px auto 0; font-size:1.1rem; color:var(--gold); font-style:italic; position:relative;}
+  .scrolldown{margin-top:60px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); letter-spacing:.15em;}
+
+  .briefing{max-width:820px; margin:0 auto; padding:40px 24px 120px; position:relative;}
+  .briefing .panel{background:var(--panel); border:1px solid var(--panel-edge); border-left:3px solid var(--gold); padding:32px 30px; border-radius:4px;}
+  .briefing h2{color:var(--gold); font-size:1.6rem; margin-bottom:14px;}
+  .briefing p{color:#cfc8b3; font-size:1rem;}
+  .mission-list{list-style:none; margin-top:22px; display:grid; gap:12px;}
+  .mission-list li{display:flex; gap:12px; align-items:flex-start; font-size:.95rem; color:#dcd5bf;}
+
+  .gallery{max-width:900px; margin:0 auto 90px; padding:0 24px; scroll-margin-top:90px; position:relative;}
+  .gallery-head{display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap;}
+  .archive-id{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold-soft); letter-spacing:.15em;}
+  .gallery-head h2{font-size:2.1rem; color:var(--parchment); width:100%;}
+  .room-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); border:1px solid var(--panel-edge); padding:4px 10px; border-radius:20px; letter-spacing:.08em;}
+  .room-tag.unlocked{color:var(--restored); border-color:rgba(79,209,165,.4);}
+  .status-line{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); letter-spacing:.1em; margin-bottom:16px;}
+
+  .vault{position:relative; border:1px solid var(--panel-edge); border-radius:8px; overflow:hidden; background:var(--panel);}
+  .vault-locked{padding:60px 30px; text-align:center; cursor:pointer; user-select:none;
+    background:repeating-linear-gradient(135deg, #12151d 0 10px, #171b25 10px 20px); position:relative;}
+  .vault-locked:hover{background:repeating-linear-gradient(135deg, #151824 0 10px, #1a1e29 10px 20px);}
+  .glitch-text{font-family:'JetBrains Mono',monospace; color:var(--alert); font-size:.85rem; letter-spacing:.1em; margin-bottom:14px;}
+  .lock-icon{font-size:2.4rem; margin-bottom:14px; filter:grayscale(1) opacity(.6);}
+  .restore-btn{margin-top:18px; display:inline-block; font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.1em; color:var(--bg); background:var(--gold); padding:10px 22px; border-radius:4px; border:none; cursor:pointer; text-transform:uppercase;}
+  .restore-btn:hover{background:#e0bb3d;}
+
+  .vault-content{display:none; padding:34px 32px 38px; animation:reveal .6s ease;}
+  .vault.open .vault-locked{display:none;}
+  .vault.open .vault-content{display:block;}
+  @keyframes reveal{from{opacity:0; filter:blur(6px);} to{opacity:1; filter:blur(0);}}
+  .vault-content h3{color:var(--gold); font-size:1.3rem; margin-bottom:10px;}
+  .vault-content p{color:#d6cfb9; margin-bottom:14px; font-size:.98rem;}
+  .vault-content ul{margin:0 0 14px 20px; color:#d6cfb9; font-size:.95rem;}
+  .vault-content li{margin-bottom:6px;}
+  .callout{background:#0f1319; border:1px dashed var(--gold-soft); border-radius:6px; padding:14px 18px; font-size:.9rem; color:#c8bd93; margin:16px 0;}
+  .callout b{color:var(--gold);}
+  .think-tool{display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px; background:rgba(201,162,39,.12); color:var(--gold); padding:3px 10px; border-radius:4px; margin-bottom:10px; letter-spacing:.05em;}
+  .imap{background:#0f1319; border:1px solid var(--panel-edge); border-radius:6px; padding:18px; font-size:.88rem; color:#b9b19a; margin-top:10px;}
+  .imap b{color:var(--parchment);}
+  .art-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:14px; margin-top:14px;}
+  .art-slot{aspect-ratio:3/4; border:1px dashed var(--panel-edge); border-radius:6px; display:flex; align-items:center; justify-content:center; text-align:center; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); padding:10px;}
+  .reflect-box{background:#0f1319; border:1px solid var(--panel-edge); border-radius:6px; padding:16px; font-style:italic; color:#c8bd93; font-size:.92rem; margin-top:10px;}
+
+  .quiz-box{background:#0f1319; border:1px solid var(--gold-soft); border-radius:8px; padding:24px 22px; margin-top:24px;}
+  .quiz-q{margin-bottom:20px; padding-bottom:18px; border-bottom:1px dashed var(--panel-edge);}
+  .quiz-q:last-of-type{border-bottom:none; margin-bottom:8px;}
+  .quiz-question{color:var(--parchment); font-size:.95rem; font-weight:600; margin-bottom:10px;}
+  .quiz-opt{display:block; font-size:.88rem; color:#c8bd93; padding:8px 10px; margin-bottom:6px; border-radius:4px; border:1px solid transparent; cursor:pointer; transition:background .2s;}
+  .quiz-opt:hover{background:rgba(201,162,39,.08); border-color:var(--panel-edge);}
+  .quiz-opt input{margin-right:8px;}
+  .quiz-result-ok{background:rgba(79,209,165,.1); border:1px solid rgba(79,209,165,.4); border-radius:6px; padding:16px; color:var(--restored); font-size:.92rem; text-align:center;}
+  .quiz-result-fail{background:rgba(255,59,92,.08); border:1px solid rgba(255,59,92,.35); border-radius:6px; padding:16px; color:#ffb3c1; font-size:.92rem; text-align:center;}
+
+  .finale{max-width:700px; margin:0 auto 100px; text-align:center; padding:0 24px;}
+  .finale .badge{display:inline-block; font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.15em; color:var(--restored); border:1px solid rgba(79,209,165,.4); padding:8px 18px; border-radius:20px; margin-bottom:18px;}
+  .finale h2{font-size:2.4rem; color:var(--parchment);}
+  .finale p{color:#c9c3ae; margin-top:12px;}
+  footer{text-align:center; padding:40px 20px 60px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); border-top:1px solid var(--panel-edge);}
+
+  @media (max-width:600px){
+    .hero h1{font-size:2.6rem;} .gallery-head h2{font-size:1.5rem;} #hud{font-size:10px; gap:10px; padding:10px 14px;}
+    .corner-badge{font-size:9px; top:52px;}
+    #hud .pct{min-width:34px;}
+  }
+</style>
+</head>
+<body>
+<div class="watermark" id="watermarkLayer"></div>
+<div class="noise"></div>
+<div class="corner-badge"><span class="dot"></span>AI GUARDIAN<br>CONNECTED</div>
+<div id="scanline"></div>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="sys-tag mono">◆ HERITAGE ARCHIVE SYSTEM v2.090</div>
+    <h2>Guardian Access</h2>
+    <div class="sub">RESTRICTED TERMINAL — AUTHORIZATION REQUIRED</div>
+    <div class="field">
+      <label>USERNAME</label>
+      <input type="text" id="userField" value="guardian_2090" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>PASSWORD</label>
+      <input type="password" id="passField" value="••••••••">
+    </div>
+    <button id="loginBtn" onclick="doLogin()">Authenticate</button>
+    <div id="verifyMsg">✓ Identity Verified</div>
+    <div class="warning-note">
+      ⚠ Warning: Only authorised Heritage Guardians can access this archive.<br>
+      Completing each mission restores one fragment of Malaysia's artistic heritage.
+    </div>
+  </div>
+</div>
+
+<div id="loadingScreen">
+  <div class="mono">RECOVERING ARCHIVE...</div>
+  <div class="load-bar-wrap"><div class="load-bar-fill" id="loadBar"></div></div>
+  <div class="pct" id="loadPct">0%</div>
+</div>
+
+<div id="mainSite">
+  <div id="hud">
+    <span class="tag mono">⚠ SYSTEM ART‑X <span class="blink">FAILURE</span></span>
+    <span class="mission-label mono">MISSION</span>
+    <div class="bar-wrap"><div class="bar-fill" id="progressBar"></div></div>
+    <span class="pct mono" id="progressPct">0%</span>
+  </div>
+
+  <section class="hero">
+    <div id="particles"></div>
+    <div class="eyebrow flicker">SISTEM ARKIB WARISAN &nbsp;·&nbsp; TAHUN 2090 &nbsp;·&nbsp; ART‑X: <span class="blink">TRANSMISSION FAILURE</span></div>
+    <h1>THE LOST<br><span class="typewriter">GALLERY</span></h1>
+    <p class="sub">Setiap Misi Memulihkan Secebis Warisan Seni Malaysia.</p>
+    <div class="scrolldown">↓ BACA TAKLIMAT MISI</div>
+  </section>
+
+  <section class="briefing">
+    <div class="panel">
+      <h2>Taklimat Misi</h2>
+      <p>Pada tahun 2090, berlaku kegagalan Sistem <b style="color:var(--alert)">ART‑X (Art Transmission Failure)</b> — satu sistem pemindahan ilmu seni yang gagal berfungsi, menyebabkan rekod warisan <b style="color:var(--gold)">seni Anyaman Malaysia</b> tidak lagi boleh diakses. Bakul, tikar, dan tudung saji — hasil tangan penganyam tradisional — kini tinggal serpihan data yang terputus.</p>
+      <p style="margin-top:10px;">Anda dilantik sebagai <b style="color:var(--gold)">Penjaga Galeri Terakhir</b>. Anda bukan sedang melawan virus — anda sedang <b>memulihkan ilmu</b>. Lima arkib di bawah telah terputus akibat kegagalan sistem. Setiap arkib hanya boleh dipulihkan selepas anda menyelesaikan satu proses pembelajaran.</p>
+      <ul class="mission-list">
+        <li>📖 Cari maklumat tentang warisan yang hilang</li>
+        <li>📝 Buat nota daripada bacaan yang ditemui</li>
+        <li>🧠 Gunakan alat kemahiran berfikir untuk memahami corak warisan</li>
+        <li>🎨 Hasilkan semula karya sebagai bukti pemulihan</li>
+        <li>💭 Rekod refleksi sebagai penjaga galeri</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="gallery reveal-on-scroll" id="g1">
+    <div class="gallery-head">
+      <span class="archive-id mono">ARCHIVE 001 · KNOWLEDGE RECOVERY</span>
+      <h2>Arkib Ilmu</h2>
+    </div>
+    <div class="status-line mono" id="status1">KEMAHIRAN: MENCARI MAKLUMAT &nbsp;·&nbsp; STATUS : LOCKED</div>
+    <div class="vault" id="vault1">
+      <div class="vault-locked" onclick="unlock(1)">
+        <div class="glitch-text mono">// ART-X: TRANSMISSION FAILURE — WARISAN_KRAF.dskp tidak dapat diakses</div>
+        <div class="lock-icon">🔒</div>
+        <p style="color:var(--dim); font-size:.9rem;">Bilik ini menyimpan asal-usul seni Anyaman tradisional Malaysia.</p>
+        <button class="restore-btn">Mulakan Pemulihan</button>
+      </div>
+      <div class="vault-content">
+        <span class="think-tool">KEMAHIRAN: PENCARIAN MAKLUMAT</span>
+        <h3>Fail Dipulihkan: Asal-Usul Seni Anyaman Malaysia</h3>
+        <div class="callout" style="border-style:solid; padding:14px; margin-bottom:16px;">
+          <p style="font-weight:bold; margin-bottom:8px;">📜 REKOD DITEMUI: FRAGMEN 001</p>
+          <p style="font-size:.9rem; margin-bottom:10px;">Sebelum meneruskan misi, Penjaga perlu memahami asal-usul artifak yang cuba dipulihkan. Tonton rakaman arkib berikut untuk mengenali seni Anyaman dan tokoh yang telah berjasa memeliharanya.</p>
+          <div style="position:relative; width:100%; padding-bottom:56.25%; height:0; border-radius:6px; overflow:hidden; background:#000;">
+            <iframe src="https://www.youtube.com/embed/YKf3uWFZyz0" title="The Lost Gallery: Arkib Ilmu" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          </div>
+        </div>
+        <p>Langkah pertama Penjaga Galeri ialah mengumpul semula maklumat asas tentang seni Anyaman, merujuk Dokumen Standard Kurikulum dan Pentaksiran (DSKP) PSV Tahun 4 bagi bidang <b>Mengenal Kraf Tradisional</b>.</p>
+        <div class="callout">
+          <b>Standard Kandungan 4.1:</b> Mengenal dan menghasilkan karya dalam Bidang Mengenal Kraf Tradisional.<br><br>
+          <b>Standard Pembelajaran:</b><br>
+          4.1.1 Mengenal pasti dan membanding beza bahasa seni visual pada karya kraf tradisional.<br>
+          4.1.2 Mengaplikasikan bahasa seni visual melalui penerokaan media, teknik dan proses.<br>
+          4.1.3 Menghasilkan karya kraf tradisional secara kreatif.<br>
+          4.1.4 Membuat apresiasi terhadap karya sendiri dan rakan menggunakan bahasa seni visual.
+        </div>
+        <p><b>Maksud Anyaman:</b> Satu proses menjalin secara silang-menyilang helaian atau jaluran daun (pandan, mengkuang) atau bahan lain seperti rotan dan buluh mengikut teknik tertentu.</p>
+        <ul>
+          <li><b>Bahan asas:</b> Daun pandan &amp; mengkuang, di samping rotan, buluh, bertam dan nipah — kebanyakannya tumbuh di kawasan hutan, paya dan pesisir pantai</li>
+          <li><b>Sejarah:</b> Diamalkan sejak berabad lamanya dalam masyarakat Melayu, terutama di Terengganu, Kedah, Perak dan Melaka</li>
+          <li><b>Anyaman Kelarai</b> — bercorak/motif berbentuk dam sebagai ragam hias utama</li>
+          <li><b>Anyaman Gadas</b> — anyaman asas tanpa kelarai, teknik angkat satu turun satu</li>
+          <li><b>Hasil:</b> Bakul, tikar, topi, tudung saji — kebanyakan dua dimensi, sebahagian tiga dimensi</li>
+        </ul>
+
+        <div class="quiz-box" id="quizBox1">
+          <div class="quiz-header">
+            <span class="think-tool" style="margin-bottom:0;">🗂️ KUIZ MISI ARKIB ILMU</span>
+          </div>
+          <p style="font-size:.88rem; color:#c8bd93; margin:12px 0 18px;">Jawab kuiz ringkas ini untuk membuktikan bahawa anda telah memahami asas seni Anyaman sebelum meneruskan misi ke arkib seterusnya.</p>
+
+          <div class="quiz-q" data-correct="B">
+            <p class="quiz-question">1. Apakah maksud anyaman?</p>
+            <label class="quiz-opt"><input type="radio" name="q1" value="A"> A. Seni melukis di atas kain</label>
+            <label class="quiz-opt"><input type="radio" name="q1" value="B"> B. Seni menyilang bahan seperti mengkuang, pandan atau kertas untuk menghasilkan sesuatu</label>
+            <label class="quiz-opt"><input type="radio" name="q1" value="C"> C. Seni mengukir kayu</label>
+            <label class="quiz-opt"><input type="radio" name="q1" value="D"> D. Seni membuat tembikar</label>
+          </div>
+
+          <div class="quiz-q" data-correct="B">
+            <p class="quiz-question">2. Antara berikut, yang manakah merupakan bahan tradisional untuk menghasilkan anyaman?</p>
+            <label class="quiz-opt"><input type="radio" name="q2" value="A"> A. Besi</label>
+            <label class="quiz-opt"><input type="radio" name="q2" value="B"> B. Daun mengkuang</label>
+            <label class="quiz-opt"><input type="radio" name="q2" value="C"> C. Simen</label>
+            <label class="quiz-opt"><input type="radio" name="q2" value="D"> D. Kaca</label>
+          </div>
+
+          <div class="quiz-q" data-correct="B">
+            <p class="quiz-question">3. Apakah kegunaan anyaman pada zaman dahulu?</p>
+            <label class="quiz-opt"><input type="radio" name="q3" value="A"> A. Membina rumah</label>
+            <label class="quiz-opt"><input type="radio" name="q3" value="B"> B. Menghasilkan tikar, bakul dan tudung saji</label>
+            <label class="quiz-opt"><input type="radio" name="q3" value="C"> C. Membuat pakaian</label>
+            <label class="quiz-opt"><input type="radio" name="q3" value="D"> D. Membuat alat muzik</label>
+          </div>
+
+          <div class="quiz-q" data-correct="C">
+            <p class="quiz-question">4. Mengapakah seni anyaman perlu dipelihara?</p>
+            <label class="quiz-opt"><input type="radio" name="q4" value="A"> A. Supaya cepat dilupakan</label>
+            <label class="quiz-opt"><input type="radio" name="q4" value="B"> B. Untuk dijual ke luar negara sahaja</label>
+            <label class="quiz-opt"><input type="radio" name="q4" value="C"> C. Kerana merupakan warisan budaya Malaysia</label>
+            <label class="quiz-opt"><input type="radio" name="q4" value="D"> D. Supaya diganti dengan teknologi</label>
+          </div>
+
+          <div class="quiz-q" data-correct="C">
+            <p class="quiz-question">5. Antara berikut, yang manakah contoh hasil anyaman?</p>
+            <label class="quiz-opt"><input type="radio" name="q5" value="A"> A. Keris</label>
+            <label class="quiz-opt"><input type="radio" name="q5" value="B"> B. Wau</label>
+            <label class="quiz-opt"><input type="radio" name="q5" value="C"> C. Bakul</label>
+            <label class="quiz-opt"><input type="radio" name="q5" value="D"> D. Gasing</label>
+          </div>
+
+          <button class="restore-btn" style="width:100%; margin-top:6px;" onclick="checkQuiz1()">Hantar Jawapan</button>
+          <div id="quizResult1" style="display:none; margin-top:16px;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery reveal-on-scroll" id="g2">
+    <div class="gallery-head">
+      <span class="archive-id mono">ARCHIVE 002 · NOTE RECONSTRUCTION</span>
+      <h2>Bilik Nota Rahsia</h2>
+    </div>
+    <div class="status-line mono" id="status2">KEMAHIRAN: MEMBACA &amp; MEMBUAT NOTA &nbsp;·&nbsp; STATUS : LOCKED</div>
+    <div class="vault" id="vault2">
+      <div class="vault-locked" onclick="tryUnlock(2)">
+        <div class="glitch-text mono">// AKSES DISEKAT — Selesaikan Arkib 001 dahulu</div>
+        <div class="lock-icon">🔒</div>
+        <p style="color:var(--dim); font-size:.9rem;">Nota yang koyak perlu disusun semula sebelum ilmu boleh diwariskan.</p>
+        <button class="restore-btn">Buka Bilik Nota</button>
+      </div>
+      <div class="vault-content">
+        <span class="think-tool">KEMAHIRAN: MEMBACA &amp; MEMBUAT NOTA</span>
+        <h3>Fail Dipulihkan: Ringkasan Bacaan Penjaga</h3>
+        <div class="callout">
+          📜 <b>Log AI Guardian</b><br><br>
+          Tahniah, Penjaga. Fragmen Arkib Pengetahuan berjaya dipulihkan. Namun sistem mengesan data masih tidak lengkap. Untuk memulihkan arkib sepenuhnya, lengkapkan nota dengan tajuk sumber, pengarang, ringkasan ayat sendiri, dan refleksi peribadi.
+        </div>
+
+        <p style="margin-top:20px;"><b>📖 Nota Bacaan Penjaga</b></p>
+        <div class="imap">
+          <b>Sumber 1:</b> Jabatan Warisan Negara — <i>Anyaman</i> (heritage.gov.my)<br>
+          Ringkasan: Anyaman ialah proses menjalin helaian daun pandan atau mengkuang secara silang-menyilang mengikut teknik tertentu. Seni ini telah diamalkan sejak berabad lamanya, terutama di Terengganu, Kedah, Perak dan Melaka. Terdapat dua jenis utama iaitu Anyaman Kelarai yang bercorak dan Anyaman Gadas yang lebih ringkas.<br>
+          Refleksi: Saya dapati nama "Kelarai" dan "Gadas" sebenarnya merujuk kepada tahap kerumitan corak, bukan jenis bahan — ini mengubah cara saya memahami klasifikasi kraf ini.<br><br>
+          <b>Sumber 2:</b> Bahagian Pembangunan Kurikulum — <i>DSKP PSV Tahun 4</i> (KPM, 2018)<br>
+          Ringkasan: Dokumen ini menggariskan bahawa murid perlu mengenal pasti bahasa seni visual pada kraf tradisional serta menghasilkan karya secara kreatif. Fokus pembelajaran turut merangkumi apresiasi terhadap hasil kraf sendiri dan rakan.<br>
+          Refleksi: Ini menunjukkan tugasan bukan sekadar mengenali Anyaman, tetapi juga menghayati proses kreatif di sebaliknya.
+        </div>
+
+        <p style="margin-top:20px;"><b>📊 Jadual Perbandingan: Anyaman Kelarai vs Gadas</b></p>
+        <div class="imap">
+          <b>Bahan:</b> Kedua-duanya guna daun pandan/mengkuang; Kelarai kadang tambah warna pewarna semula jadi<br><br>
+          <b>Teknik:</b> Gadas — angkat satu turun satu (asas); Kelarai — jalinan lebih rapat dengan corak berselang-seli<br><br>
+          <b>Corak/Motif:</b> Gadas — corak petak ringkas; Kelarai — corak berbentuk dam/ragam hias<br><br>
+          <b>Fungsi:</b> Gadas — bakul &amp; tikar asas harian; Kelarai — tudung saji &amp; bakul hiasan bermutu tinggi
+        </div>
+
+        <div class="imap" style="margin-top:16px; text-align:center; font-style:italic;">
+          🟢 STATUS: ARCHIVE READY FOR RECONSTRUCTION<br><br>
+          "Setiap nota yang dipulihkan menghidupkan semula satu warisan yang hampir hilang."
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery reveal-on-scroll" id="g3">
+    <div class="gallery-head">
+      <span class="archive-id mono">ARCHIVE 003 · THINKING ANALYSIS</span>
+      <h2>Makmal Pemikiran</h2>
+    </div>
+    <div class="status-line mono" id="status3">KEMAHIRAN BERFIKIR: i-THINK &amp; CoRT &nbsp;·&nbsp; STATUS : LOCKED</div>
+    <div class="vault" id="vault3">
+      <div class="vault-locked" onclick="tryUnlock(3)">
+        <div class="glitch-text mono">// CORAK_TERKUNCI — Perlukan Analisis Berfikir</div>
+        <div class="lock-icon">🔒</div>
+        <p style="color:var(--dim); font-size:.9rem;">Sistem ART‑X mengunci corak sebenar Anyaman. Hanya pemikiran kritis dapat memecahkannya.</p>
+        <button class="restore-btn">Buka Makmal</button>
+      </div>
+      <div class="vault-content">
+        <span class="think-tool">ALAT: PETA i-THINK &amp; CoRT 3</span>
+        <h3>Fail Dipulihkan: Analisis Pemikiran Penjaga</h3>
+        <p>Sistem berjaya memulihkan rekod analisis pemikiran yang digunakan untuk memahami seni Anyaman. Penjaga perlu menggunakan kemahiran berfikir bagi mengelaskan maklumat serta membuat penilaian secara kritis sebelum arkib dapat dipulihkan sepenuhnya.</p>
+
+        <p style="margin-top:20px;"><b>🌳 Rekod 01 — Peta Pokok (i-Think)</b></p>
+        <div class="callout" style="border-style:solid; padding:10px;">
+          <img src="peta-ithink-anyaman.png" alt="Peta Pokok i-Think Seni Anyaman" style="width:100%; border-radius:6px; display:block;">
+        </div>
+        <p style="font-size:.9rem;">Peta Pokok digunakan untuk mengelaskan seni Anyaman mengikut bahan, jenis, dan fungsi supaya maklumat dapat difahami dengan lebih tersusun dan sistematik.</p>
+
+        <p style="margin-top:20px;"><b>💡 Rekod 02 — Analisis CoRT 3 (PMI)</b></p>
+        <div class="callout" style="border-style:solid; padding:10px;">
+          <img src="cort3-analisis.png" alt="Analisis CoRT 3 PMI Seni Anyaman" style="width:100%; border-radius:6px; display:block;">
+        </div>
+        <div class="imap">
+          <b>Plus:</b> Memudahkan penyebaran maklumat kepada masyarakat; menarik minat generasi muda melalui teknologi digital.<br><br>
+          <b>Minus:</b> Pengalaman menyentuh dan merasai tekstur anyaman sebenar tidak dapat digantikan secara digital.<br><br>
+          <b>Interesting:</b> Warisan Anyaman boleh dipelihara dan dipromosikan melalui galeri maya seperti The Lost Gallery.
+        </div>
+
+        <div class="imap" style="margin-top:16px; text-align:center; font-style:italic;">
+          🟢 STATUS AKHIR: ANALISIS BERJAYA DISAHKAN<br><br>
+          "Pemikiran yang kritis membolehkan warisan dipelihara dengan lebih bermakna."
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery reveal-on-scroll" id="g4">
+    <div class="gallery-head">
+      <span class="archive-id mono">ARCHIVE 004 · ARTWORK RESTORATION</span>
+      <h2>Studio Pemulihan</h2>
+    </div>
+    <div class="status-line mono" id="status4">KEMAHIRAN: MENGHASILKAN PRODUK &nbsp;·&nbsp; STATUS : LOCKED</div>
+    <div class="vault" id="vault4">
+      <div class="vault-locked" onclick="tryUnlock(4)">
+        <div class="glitch-text mono">// KANVAS_KOSONG — Karya Perlu Dihasilkan Semula</div>
+        <div class="lock-icon">🔒</div>
+        <p style="color:var(--dim); font-size:.9rem;">Satu-satunya cara memulihkan warisan ialah mencipta semula dengan tangan sendiri.</p>
+        <button class="restore-btn">Masuk Studio</button>
+      </div>
+      <div class="vault-content">
+        <span class="think-tool">HASIL: KARYA SENI PENJAGA</span>
+        <h3>Fail Dipulihkan: Galeri Karya</h3>
+        <div class="callout" style="border-style:solid; padding:14px; margin-bottom:16px;">
+          <p style="font-weight:bold; margin-bottom:8px;">🛠️ BRIEFING MISI: STUDIO PEMULIHAN</p>
+          <p style="font-size:.9rem; margin-bottom:10px;">Akses Penjaga telah disahkan. Sebelum tangan kamu menyentuh bahan pemulihan, kuasai dahulu teknik asas yang digunakan sejak turun-temurun. Tonton video latihan ini sebelum memulakan misi.</p>
+          <div style="position:relative; width:100%; padding-bottom:56.25%; height:0; border-radius:6px; overflow:hidden; background:#000;">
+            <iframe src="https://www.youtube.com/embed/4PAqMqBYVR4" title="Misi Pemulihan: Arkib 004" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          </div>
+        </div>
+        <p>Hasilkan semula seni Anyaman (Kelarai atau Gadas) mengikut panduan di bawah, lekatkan "kod pemulihan" (kod QR) pada setiap karya yang membawa pengunjung ke penerangan ringkas.</p>
+        <div class="callout" style="border-style:solid; padding:10px;">
+          <img src="panduan.png" alt="Panduan Menghasilkan Karya Anyaman" style="width:100%; border-radius:6px; display:block;">
+        </div>
+        <p style="margin-top:16px;"><b>Karya yang dihasilkan:</b></p>
+        <div class="callout" style="border-style:solid; padding:10px;">
+          <img src="karya1.png" alt="Karya 1 - Anyaman Gadas Asas" style="width:100%; border-radius:6px; display:block; margin-bottom:10px;">
+          <img src="karya2.png" alt="Karya 2 - Anyaman Kelarai Corak" style="width:100%; border-radius:6px; display:block; margin-bottom:10px;">
+          <img src="karya3.png" alt="Karya 3 - Anyaman Kelarai Kreatif" style="width:100%; border-radius:6px; display:block;">
+        </div>
+        <ul style="margin-top:14px;">
+          <li><b>Karya 1 — Anyaman Gadas (Asas):</b> Corak petak asas menggunakan teknik "angkat satu, turun satu". Ringkas dan kemas.</li>
+          <li><b>Karya 2 — Anyaman Kelarai (Corak):</b> Corak kelarai berbentuk dam dihasilkan dengan selang-seli warna. Lebih berwarna dan menarik.</li>
+          <li><b>Karya 3 — Anyaman Kelarai (Kreatif):</b> Corak kreatif dengan motif bunga geometri di tengah. Gabungan warna kontra yang menyerlah.</li>
+        </ul>
+        <div class="callout" style="border-style:solid; padding:16px; margin-top:16px; text-align:center;">
+          <p style="font-weight:bold; margin-bottom:10px;">📱 KOD PEMULIHAN — IMBAS UNTUK PENERANGAN LANJUT</p>
+          <img src="qr.png" alt="Kod QR - Penerangan Karya Anyaman" style="width:220px; max-width:60%; border-radius:6px; display:block; margin:0 auto;">
+          <p style="font-size:.8rem; color:var(--dim); margin-top:10px;">Imbas kod QR di atas untuk melihat gambar dan penerangan lanjut bagi ketiga-tiga karya Anyaman Penjaga Galeri.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery reveal-on-scroll" id="g5">
+    <div class="gallery-head">
+      <span class="archive-id mono">ARCHIVE 005 · REFLECTION LOG</span>
+      <h2>Jurnal Penjaga</h2>
+    </div>
+    <div class="status-line mono" id="status5">REFLEKSI PEMBELAJARAN &nbsp;·&nbsp; STATUS : LOCKED</div>
+    <div class="vault" id="vault5">
+      <div class="vault-locked" onclick="tryUnlock(5)">
+        <div class="glitch-text mono">// LOG_TERAKHIR_BELUM_DITULIS</div>
+        <div class="lock-icon">🔒</div>
+        <p style="color:var(--dim); font-size:.9rem;">Setiap misi berakhir dengan rekod peribadi seorang penjaga.</p>
+        <button class="restore-btn">Tulis Log Akhir</button>
+      </div>
+      <div class="vault-content">
+        <span class="think-tool">REFLEKSI</span>
+        <h3>Fail Dipulihkan: Log Penjaga Galeri</h3>
+        <div class="reflect-box">"Sebagai Penjaga Galeri Terakhir dalam tugasan ini, saya memilih untuk membina Objek Pembelajaran Digital berasaskan konsep story-based dan gamified yang bertajuk 'The Lost Gallery' kerana saya ingin menghasilkan pengalaman pembelajaran yang lebih menarik dan bermakna. Berbanding menghasilkan laman web biasa, konsep ini membolehkan saya menggabungkan elemen penceritaan, cabaran dan interaktiviti supaya pengguna dapat mempelajari topik Anyaman secara lebih menyeronokkan. Selain itu, tema pemulihan warisan yang hilang amat sesuai dengan tajuk Anyaman kerana ia menggambarkan kepentingan memelihara seni dan kraf tradisional Malaysia agar tidak dilupakan oleh generasi akan datang.<br><br>Bahagian yang paling mencabar sepanjang menyiapkan tugasan ini ialah menghasilkan Peta i-Think dan analisis CoRT 3 di Archive 003. Saya perlu memahami topik Anyaman dengan lebih mendalam sebelum dapat mengelaskan maklumat mengikut bahan, jenis dan fungsi secara tersusun. Pada masa yang sama, saya turut perlu menilai secara kritis kelebihan dan kekurangan penggunaan teknologi digital dalam mempersembahkan warisan tradisional. Cabaran ini mengajar saya bahawa kemahiran berfikir memerlukan kefahaman yang jelas terhadap sesuatu topik dan bukan sekadar mengisi maklumat ke dalam sesuatu peta pemikiran.<br><br>Melalui keseluruhan proses menghasilkan tugasan ini, saya menyedari bahawa warisan kraf tradisional seperti Anyaman mempunyai nilai budaya yang sangat tinggi dan perlu terus dipelihara. Saya juga semakin yakin menggunakan pelbagai aplikasi digital untuk membina Objek Pembelajaran Digital yang lebih kreatif dan interaktif. Pengalaman ini menunjukkan kepada saya bahawa kreativiti dan teknologi boleh digabungkan dengan kandungan akademik untuk menghasilkan pembelajaran yang lebih menarik, bermakna dan berkesan kepada murid."</div>
+        <p style="margin-top:14px; font-size:.85rem; color:var(--dim);">Refleksi Penjaga Galeri — dikaitkan dengan C5 (Pemikiran Kritis), C6 (Kreativiti), dan LD3 (Memanfaatkan Kemudahan Digital).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="finale" id="finale" style="display:none;">
+    <div class="badge mono">SYSTEM RESTORED — 100%</div>
+    <h2>Arkib Warisan Seni Malaysia Berjaya Dipulihkan</h2>
+    <p>Pemulihan tercapai melalui pembelajaran bermakna — pencarian maklumat, pembinaan nota, kemahiran berfikir, penghasilan karya, dan refleksi.</p>
+  </section>
+
+  <section class="briefing" style="padding-top:0;">
+    <div class="panel" style="border-left-color:var(--gold-soft);">
+      <h2 style="font-size:1.3rem;">📚 Rujukan</h2>
+      <p style="font-size:.88rem; color:#b9b19a; line-height:1.9;">
+        Bahagian Pembangunan Kurikulum. (2018). <i>Dokumen Standard Kurikulum dan Pentaksiran: Pendidikan Seni Visual Tahun 4</i>. Kementerian Pendidikan Malaysia.<br><br>
+        Google NotebookLM. (2026). <i>Anyaman: Seni warisan Malaysia</i> [Video overview dijana AI berdasarkan sumber Kraftangan Malaysia &amp; DSKP KSSR PSV Tahun 4].<br><br>
+        Jabatan Warisan Negara. (t.t.). <i>Anyaman</i>. Diakses daripada https://www.heritage.gov.my/en/kraf.html<br><br>
+        Kraftangan Malaysia. (t.t.). <i>Adiguru Kraf</i>. Diakses daripada https://kraftangan.gov.my<br><br>
+        Kraftangan Malaysia. (t.t.). <i>Hajah Kelsom binti Abdullah — Adiguru Kraf Anyaman</i>. Diakses daripada https://kraftangan.gov.my/info/adiguru-kraf/hajah-kelsom-binti-abdullah<br><br>
+        <i>Proses menganyam tikar mengkuang | Tingkatan 3</i>. (2021, September 23). YouTube. https://www.youtube.com/watch?v=GkbiWOiGaVc
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    THE LOST GALLERY<br>
+    Objek Pembelajaran Digital (OPD)<br>
+    GKEB1072 &amp; GAPD1032
+  </footer>
+</div>
+
+<script>
+  const wm = document.getElementById('watermarkLayer');
+  let line = "ART-X   SYSTEM ONLINE   ART-X   SYSTEM ONLINE   ";
+  let full = "";
+  for(let i=0;i<40;i++){ full += line + "\n"; }
+  wm.textContent = full;
+
+  function doLogin(){
+    document.getElementById('verifyMsg').style.display='block';
+    document.getElementById('loginBtn').disabled = true;
+    document.getElementById('loginBtn').textContent = 'Verified';
+    setTimeout(()=>{
+      document.getElementById('loginScreen').style.display='none';
+      startLoading();
+    }, 900);
+  }
+
+  function startLoading(){
+    document.getElementById('loadingScreen').style.display='flex';
+    let p = 0;
+    const bar = document.getElementById('loadBar');
+    const pct = document.getElementById('loadPct');
+    const iv = setInterval(()=>{
+      p += 2;
+      bar.style.width = p+'%';
+      pct.textContent = p+'%';
+      if(p>=100){
+        clearInterval(iv);
+        setTimeout(()=>{
+          document.getElementById('loadingScreen').style.display='none';
+          document.getElementById('mainSite').style.display='block';
+        }, 300);
+      }
+    }, 100);
+  }
+
+  const pWrap = document.getElementById('particles');
+  if(pWrap){
+    for(let i=0;i<24;i++){
+      const p = document.createElement('div');
+      p.className='particle';
+      p.style.left = Math.random()*100+'%';
+      p.style.setProperty('--drift', (Math.random()*40-20)+'px');
+      p.style.animationDuration = (6+Math.random()*8)+'s';
+      p.style.animationDelay = (Math.random()*8)+'s';
+      pWrap.appendChild(p);
+    }
+  }
+
+  const revealEls = document.querySelectorAll('.reveal-on-scroll');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){ e.target.classList.add('visible'); }
+    });
+  }, {threshold:0.15});
+  revealEls.forEach(el=>io.observe(el));
+
+  let unlocked=[false,false,false,false,false];
+  function updateHud(){
+    const n = unlocked.filter(Boolean).length;
+    const pct = Math.round((n/5)*100);
+    document.getElementById('progressBar').style.width = pct+'%';
+    document.getElementById('progressPct').textContent = pct+'%';
+    if(n===5){
+      document.getElementById('finale').style.display='block';
+      document.querySelector('.tag').innerHTML = '✓ ART‑X <span style="color:var(--restored)">DIBERSIHKAN</span>';
+    }
+  }
+  function unlock(i){
+    unlocked[i-1]=true;
+    document.getElementById('vault'+i).classList.add('open');
+    document.getElementById('status'+i).textContent = 'STATUS : RESTORED';
+    document.getElementById('status'+i).style.color = 'var(--restored)';
+    updateHud();
+  }
+  function tryUnlock(i){
+    if(!unlocked[i-2] && i>1){
+      alert('🔒 Selesaikan Arkib 00'+(i-1)+' terlebih dahulu.');
+      return;
+    }
+    unlock(i);
+  }
+
+  function checkQuiz1(){
+    const box = document.getElementById('quizBox1');
+    const questions = box.querySelectorAll('.quiz-q');
+    let correctCount = 0;
+    let allAnswered = true;
+
+    questions.forEach(q=>{
+      const name = q.querySelector('input').name;
+      const selected = box.querySelector('input[name="'+name+'"]:checked');
+      const correct = q.getAttribute('data-correct');
+      if(!selected){
+        allAnswered = false;
+      } else if(selected.value === correct){
+        correctCount++;
+      }
+    });
+
+    const resultDiv = document.getElementById('quizResult1');
+    resultDiv.style.display = 'block';
+
+    if(!allAnswered){
+      resultDiv.innerHTML = '<div class="quiz-result-fail">⚠️ Sila jawab semua soalan sebelum menghantar.</div>';
+      return;
+    }
+
+    if(correctCount === questions.length){
+      resultDiv.innerHTML = '<div class="quiz-result-ok">🟢 Tahniah, Penjaga Galeri! Anda telah berjaya memulihkan Arkib Ilmu. Data sejarah seni anyaman berjaya disimpan.</div>';
+    } else {
+      resultDiv.innerHTML = '<div class="quiz-result-fail">🟡 Misi Belum Selesai! Anda menjawab '+correctCount+' daripada '+questions.length+' soalan dengan betul. Semak semula maklumat dalam Arkib Ilmu dan cuba lagi.</div>';
+    }
+  }
+</script>
+</body>
+</html>
